@@ -1,0 +1,101 @@
+<?php
+/**
+ * Implements hook_menu().
+ */
+function linkfree_mzc_menu() {
+	$items['execute_rule'] = array(
+			'page callback' => 'linkfree_mzc_execute_rule',
+			'page arguments' => array(1,2),
+			'access callback' => TRUE,
+			'type' => MENU_CALLBACK,
+	);
+	return $items;
+}
+
+/**
+ * 执行规则，并传递参数
+ */
+function linkfree_mzc_execute_rule(){
+	$rule_name = arg(1);
+	$nid = arg(2);
+	
+	$node = node_load($nid);
+	rules_invoke_component($rule_name,$node);
+	
+	drupal_goto(drupal_get_destination());
+}
+
+/**
+ * 根据节点状态选择生成不同的审批按钮代码并返回
+ * 这个函数将在tr03的node_template(panel)中使用，用于根据状态生成不同的审批按钮代码
+ */
+function linkfree_mzc_theme_workflow_button(){
+	//获取待审批的节点信息
+	$nid = arg(1);
+	$node = node_load($nid);
+	
+	//根据节点状态选择生成不同的审批按钮代码并返回
+	$tr03_status = $node->field_f03005['und'][0]['value'];
+	
+	$theme_workflow_button_code = "";
+	switch ($tr03_status){
+		case 1:		//门店确认-待审批
+			$theme_workflow_button_code =
+			 		"<a href='/node/add/tr10?field_f10001=".$nid."&destination=/' class='sexbutton'>审批通过</a>";
+			break;
+		case 2:		//测量布局-测量中
+			break;
+		case 3:		//测量布局-待审批
+			$theme_workflow_button_code =
+				"<a href='/execute_rule/rules_rs00301/".$nid."?destination=/' class='sexbutton'>审批通过</a>";
+			break;
+	}
+	dsm($tr03_status);
+	dsm($theme_workflow_button_code);
+	return $theme_workflow_button_code;
+}
+
+/**
+ * 当用户在微信触发事件时的处理函数
+ *
+ * @param unknown $postObj
+ */
+function linkfree_mzc_weixin_reply_handler($postObj){
+	$fromUsername = $postObj->FromUserName; // 发送人OpenId
+	$toUsername = $postObj->ToUserName; // 接收人OpenId
+	$fromType = $postObj->MsgType; // 消息类型
+	$time = time ();
+	
+	file_put_contents('/tmp/weixin_mzc.log',var_export($postObj,true));
+	
+	if ($postObj->MsgType == "event") {
+		if ($postObj->Event == "CLICK") {
+			if ($postObj->EventKey == "check") {
+				//取得当前的最新活动的图文消息，返回给用户
+				$resultStr ="
+						<xml>
+						<ToUserName><![CDATA[".$fromUsername."]]></ToUserName>
+						<FromUserName><![CDATA[".$toUsername."]]></FromUserName>
+						<CreateTime>".$time."</CreateTime>
+						<MsgType><![CDATA[news]]></MsgType>
+						<ArticleCount>1</ArticleCount>
+						<Articles>
+						<item>
+						<Title><![CDATA[闺蜜“装”脉动纤系列上市校园活动]]></Title>
+						<Description><![CDATA[春暖花开，闺蜜“装”脉动纤新系列上市 校园活动]]></Description>
+						<PicUrl><![CDATA[http://rsh.linkfree-china.com/weixinres/001.jpg]]></PicUrl>
+						<Url><![CDATA[http://rsh.linkfree-china.com/ggkselect/".$fromUsername."]]></Url>
+						</item>
+						</Articles>
+						</xml>
+						";
+	
+				//$picTpl =GetPicResTpl($postObj);
+				//$resultStr = sprintf ($picTpl, $fromUsername, $toUsername, $time, $fromUsername);
+	
+				echo $resultStr;
+			}
+		}
+	}
+}
+?>

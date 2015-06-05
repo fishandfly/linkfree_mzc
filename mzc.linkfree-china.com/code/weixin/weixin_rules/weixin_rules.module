@@ -1,0 +1,4 @@
+<?php
+function weixin_rules_init() {
+	drupal_set_message("wexin_rules_init");
+}

@@ -1,0 +1,72 @@
+<?php
+include(drupal_get_path('module', 'weixin_rules') .'/weixin_rules.rules.inc');
+function weixin_notify_menu() {
+	$items['weixin/configuration/notify_template'] = array(
+		'title' => 'notify tempate configuration',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('weixin_notify_configure_form'),
+		'access arguments' => array('access weixin configure'),
+//		'file' => 'includes/weixin.configuration.inc',
+		'type' => MENU_LOCAL_TASK,
+	);
+	return $items;
+}
+
+function weixin_notify_configure_form_submit($form, &$form_state) {
+//	dpm($form_state);
+	variable_set('template_id',$form_state['values']['template_id']);
+	variable_set('template_color',$form_state['values']['template_color']);
+}
+
+function weixin_notify_form_alter(&$form, &$form_state, $form_id) {
+//	dpm($form_id);
+	if($form_id == "user_profile_form") {
+			$form['weixin_notify_default'] = array(
+				'#type' => 'checkbox',
+				'#title' => t('Notify users of new private messages by default'),
+				'#default_value' => variable_get('weixin_notify_default', TRUE),
+				'#weight' => 10,
+			);
+	}
+}
+
+
+function weixin_notify_configure_form($form, $form_state) {
+	$form=array();
+	$form['description']=array(
+		'#type' => 'item',
+		'#markup' => t('Please configure the notify template.'),
+	);
+        $form['template_id'] = array (
+                '#type' => 'textfield',
+                '#title' => t('template id'),
+		'#default_value' => variable_get('template_id'),
+        );
+	$form['template_color'] = array (
+		'#type' => 'jquery_colorpicker',
+		'#title' => t('Color'),
+		'#default_value' => variable_get('template_color','FFFFFF'),
+	);
+	$form['submit'] = array(
+		'#type' => 'submit',
+		'#value' => 'Save changes',
+	);
+	return $form;
+}
+
+function weixin_notify_privatemsg_message_insert($message) {
+//	dpm('weixin send notify message');
+//	dpm($message);
+//	$adm_user = user_load(1);
+	$template_id = variable_get('template_id');
+	$template_color = sprintf("#%s",variable_get('template_color'));
+//	dpm($template_color);
+	$template_type ="message";
+	$data['first']['value'] = t('you got message from !username',array('!username'=>$message->author->name));
+	$data['keyword1']['value'] = $message->subject;
+	$data['keyword2']['value'] = format_date($message->timestamp,'short');
+	foreach($message->recipients as $user) {
+		$user_obj = user_load($user->uid);
+		weixin_user($user_obj,$template_id,$template_type,$data,$template_color);
+	}
+}
